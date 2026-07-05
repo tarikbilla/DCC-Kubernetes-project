@@ -1,0 +1,23 @@
+# ---------------------------------------------------------------------------
+# kind (Kubernetes IN Docker) cluster definition.
+#
+# Creates a real 3-node Kubernetes cluster where every "node" is a Docker
+# container on your machine: 1 control-plane + 2 workers, so Pods visibly
+# spread across multiple nodes like in a production cluster.
+#
+# Create:  kind create cluster --name dcc --config kind-config.yaml
+# Delete:  kind delete cluster --name dcc
+# ---------------------------------------------------------------------------
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    # Forward localhost:8080 on your Mac into port 30080 of this node —
+    # that's the NodePort our Service opens, so the app is reachable at
+    # http://localhost:8080 without any extra tooling.
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 8080
+        protocol: TCP
+  - role: worker
+  - role: worker

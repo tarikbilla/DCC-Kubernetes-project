@@ -1,0 +1,90 @@
+# ---------------------------------------------------------------------------
+# Deployment — tells Kubernetes WHAT to run and HOW MANY copies.
+#
+# A Deployment manages a ReplicaSet, which in turn keeps the desired number
+# of Pods running at all times. This one object gives us all three demos:
+#   * Scalability   -> change `replicas` (kubectl scale)
+#   * Self-healing  -> the ReplicaSet replaces any deleted/crashed Pod
+#   * Rolling update-> change the image tag (kubectl set image)
+# ---------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dcc-web
+  labels:
+    app: dcc-web
+spec:
+  # Desired number of identical Pods. Kubernetes constantly reconciles
+  # actual state -> desired state; that reconciliation IS self-healing.
+  replicas: 3
+
+  # How the Deployment finds the Pods it owns (must match template labels).
+  selector:
+    matchLabels:
+      app: dcc-web
+
+  # How to replace Pods when the template changes (e.g. a new image tag).
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1        # at most 1 extra Pod above `replicas` during update
+      maxUnavailable: 0  # never drop below `replicas` -> zero-downtime deploy
+
+  # Template = the blueprint for every Pod this Deployment creates.
+  template:
+    metadata:
+      labels:
+        app: dcc-web
+    spec:
+      containers:
+        - name: web
+          # kind loads local images into the cluster; IfNotPresent stops
+          # Kubernetes from trying to pull them from Docker Hub.
+          image: dcc-web:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+
+          # Zero-downtime detail: when a Pod is terminated, removing it from
+          # the Service's load-balancing rules on every node takes a moment.
+          # Sleeping 5s BEFORE the app receives SIGTERM lets already-routed
+          # requests finish, so rolling updates drop zero requests.
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "5"]
+
+          # Readiness: "is this Pod allowed to receive traffic?"
+          # While failing, the Pod is removed from the Service's endpoints
+          # but NOT restarted. This is what makes rolling updates zero-
+          # downtime: a new Pod gets traffic only after it reports ready.
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 2
+            periodSeconds: 3
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          # Liveness: "is this Pod still alive at all?"
+          # After `failureThreshold` consecutive failures the container is
+          # killed and restarted — self-healing for hung processes.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 5
+
+          # Requests = guaranteed reservation used for scheduling (and the
+          # baseline for HPA percentages). Limits = hard cap.
+          resources:
+            requests:
+              cpu: 50m        # 0.05 of a CPU core
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi

@@ -1,0 +1,10 @@
+# Keep the Docker build context small — only app/ is needed in the image.
+.git
+.DS_Store
+Docs/
+k8s/
+README.md
+kind-config.yaml
+Makefile
+**/__pycache__
+**/.venv
