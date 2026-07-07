@@ -1,0 +1,56 @@
+--------Check Version--------
+docker --version
+kubectl version --client
+kind version
+open -a Docker 
+
+--------Build and Run Docker--------
+docker build -t dcc-web:1.0.0 --build-arg APP_VERSION=1.0.0 .
+docker build -t dcc-web:2.0.0 --build-arg APP_VERSION=2.0.0 .
+docker images | grep dcc-web
+
+docker run --rm -d -p 8000:8000 --name dcc dcc-web:1.0.0
+
+http://localhost:8000
+http://localhost:8000/api/info
+docker logs dcc
+docker stop dcc
+
+--------Create the Kubernetes cluster (kind)--------
+kind create cluster --name dcc --config kind-config.yaml
+
+kubectl cluster-info --context kind-dcc
+kubectl get nodes
+
+
+--------Deploy the app to Kubernetes---------
+docker images
+kind load docker-image dcc-web:1.0.0 dcc-web:2.0.0 --name dcc
+
+-------- Apply the manifests--------
+kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml
+kubectl rollout status deployment/dcc-web
+
+kubectl get deploy,rs,pods,svc -o wide
+#rs → Show ReplicaSets. #pods → Show Pods. #svc → Show Services. #-o wide → Display extra columns and more detailed information.
+
+http://localhost:8080.
+
+
+------Scalability------
+kubectl scale deployment dcc-web --replicas=6
+kubectl scale deployment dcc-web --replicas=2
+
+kubectl get pods
+kubectl delete pod <POD-NAME>
+kubectl delete pods -l app=dcc-web
+
+--------------Rolling update & rollback-------
+kubectl set image deployment/dcc-web web=dcc-web:2.0.0
+kubectl rollout status deployment/dcc-web
+
+kubectl get rs                              # both ReplicaSets, old one at 0
+kubectl rollout history deployment/dcc-web  # revision list
+------rollback------
+kubectl rollout undo deployment/dcc-web
+kubectl rollout status deployment/dcc-web
