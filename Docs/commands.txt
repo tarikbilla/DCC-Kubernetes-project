@@ -54,3 +54,10 @@ kubectl rollout history deployment/dcc-web  # revision list
 ------rollback------
 kubectl rollout undo deployment/dcc-web
 kubectl rollout status deployment/dcc-web
+
+----------HorizontalPodAutoscaler (HPA)------------
+kubectl rollout status deployment/metrics-server -n kube-system
+sleep 30 && kubectl top pods    # per-pod CPU/memory now visible
+--------Apply the HPA and generate load
+kubectl apply -f k8s/hpa.yaml
+kubectl get hpa dcc-web -w      # leave watching
